@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Coin Flip Simulation (Batch)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
+    h1 { text-align: center; }
+    .controls { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-bottom: 20px; }
+    .controls label { display: block; margin-bottom: 4px; }
+    .controls div { flex: 1 1 200px; }
+    #results { white-space: pre-wrap; background: #fff; padding: 10px; border: 1px solid #ccc; max-height: 300px; overflow-y: auto; }
+    canvas { background: #fff; border: 1px solid #ccc; position: relative; }
+  </style>
+</head>
+<body>
+
+<h1>Coin Flip Simulator - Repeated Runs</h1>
+
+<div class="controls">
+  <div>
+    <label>Player A Payout (1:X)</label>
+    <input type="number" id="aPayout" value="2" min="1">
+  </div>
+  <div>
+    <label>Player A Chooses</label>
+    <select id="aChoice">
+      <option value="Heads">Heads</option>
+      <option value="Tails">Tails</option>
+    </select>
+  </div>
+  <div>
+    <label>Player A Handicap (Skip every N throws)</label>
+    <input type="number" id="aHandicap" value="0" min="0">
+  </div>
+
+  <div>
+    <label>Player B Payout (1:X)</label>
+    <input type="number" id="bPayout" value="3" min="1">
+  </div>
+  <div>
+    <label>Player B Chooses</label>
+    <select id="bChoice">
+      <option value="Heads">Heads</option>
+      <option value="Tails" selected>Tails</option>
+    </select>
+  </div>
+  <div>
+    <label>Player B Handicap (Skip every N throws)</label>
+    <input type="number" id="bHandicap" value="10" min="0">
+  </div>
+</div>
+
+<button onclick="runRepeatedBatchSimulation()">GO (100 x 100)</button>
+<div style="position: relative;">
+  <canvas id="chart" width="800" height="400"></canvas>
+  <div id="summaryOverlay" style="position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.9); border: 1px solid #666; padding: 10px; font-size: 14px; z-index: 10;"></div>
+</div>
+<h3>Results</h3>
+<div id="results"></div>
+
+<script>
+function runRepeatedBatchSimulation() {
+  const numRepeats = 100;
+  const numThrows = 100;
+
+  const aPayout = parseInt(document.getElementById('aPayout').value);
+  const aChoice = document.getElementById('aChoice').value;
+  const aHandicap = parseInt(document.getElementById('aHandicap').value);
+
+  const bPayout = parseInt(document.getElementById('bPayout').value);
+  const bChoice = document.getElementById('bChoice').value;
+  const bHandicap = parseInt(document.getElementById('bHandicap').value);
+
+  let aWins = 0;
+  let bWins = 0;
+  let aScoreProgress = [];
+  let bScoreProgress = [];
+  let roundDiffs = [];
+  let resultsText = '';
+
+  for (let repeat = 0; repeat < numRepeats; repeat++) {
+    let aTotal = 0, bTotal = 0;
+
+    for (let i = 0; i < numThrows; i++) {
+      const coin = Math.random() < 0.5 ? 'Heads' : 'Tails';
+
+      const aPlays = !(aHandicap && (i + 1) % aHandicap === 0);
+      const bPlays = !(bHandicap && (i + 1) % bHandicap === 0);
+
+      if (aPlays && coin === aChoice) aTotal += (aPayout - 1);
+      else if (aPlays) aTotal -= 1;
+
+      if (bPlays && coin === bChoice) bTotal += (bPayout - 1);
+      else if (bPlays) bTotal -= 1;
+    }
+
+    const diff = aTotal - bTotal;
+    roundDiffs.push(`Round ${repeat + 1}: A=${aTotal}, B=${bTotal}, Diff=${diff}`);
+
+    if (aTotal > bTotal) aWins++;
+    else if (bTotal > aTotal) bWins++;
+
+    aScoreProgress.push(aWins);
+    bScoreProgress.push(bWins);
+    resultsText += `Round ${repeat + 1}: A = ${aTotal}, B = ${bTotal}\n`;
+  }
+
+  const summaryText = `FINAL: A = ${aWins}, B = ${bWins}`;
+  document.getElementById('results').textContent = resultsText + "\n" + summaryText;
+  document.getElementById('summaryOverlay').textContent = summaryText;
+
+  const ctx = document.getElementById('chart').getContext('2d');
+  if (window.simChart) window.simChart.destroy();
+  window.simChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: Array.from({length: numRepeats}, (_, i) => i + 1),
+      datasets: [
+        { label: 'A Cumulative Wins', data: aScoreProgress, borderColor: 'blue', fill: false },
+        { label: 'B Cumulative Wins', data: bScoreProgress, borderColor: 'green', fill: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: 'Head-to-Head Outcome Over 100 Rounds' },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const index = context.dataIndex;
+              return roundDiffs[index];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Round #' } },
+        y: { title: { display: true, text: 'Cumulative Score' } }
+      }
+    }
+  });
+}
+</script>
+
+</body>
+</html>
