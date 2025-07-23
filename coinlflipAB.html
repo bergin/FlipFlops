@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Custom Coin Flip Simulation</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
+    h1 { text-align: center; }
+    .controls { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-bottom: 20px; }
+    .controls label { display: block; margin-bottom: 4px; }
+    .controls div { flex: 1 1 200px; }
+    #results { white-space: pre-wrap; background: #fff; padding: 10px; border: 1px solid #ccc; }
+    canvas { background: #fff; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+
+<h1>Custom Coin Flip Simulation</h1>
+
+<div class="controls">
+  <div>
+    <label>Player A Payout (1:X)</label>
+    <input type="number" id="aPayout" value="2" min="1">
+  </div>
+  <div>
+    <label>Player A Chooses</label>
+    <select id="aChoice">
+      <option value="Heads">Heads</option>
+      <option value="Tails">Tails</option>
+    </select>
+  </div>
+  <div>
+    <label>Player A Handicap (Skip every N throws)</label>
+    <input type="number" id="aHandicap" value="0" min="0">
+  </div>
+
+  <div>
+    <label>Player B Payout (1:X)</label>
+    <input type="number" id="bPayout" value="3" min="1">
+  </div>
+  <div>
+    <label>Player B Chooses</label>
+    <select id="bChoice">
+      <option value="Heads">Heads</option>
+      <option value="Tails" selected>Tails</option>
+    </select>
+  </div>
+  <div>
+    <label>Player B Handicap (Skip every N throws)</label>
+    <input type="number" id="bHandicap" value="10" min="0">
+  </div>
+</div>
+
+<button onclick="runSimulation()">GO</button>
+<canvas id="chart" width="800" height="400"></canvas>
+<h3>Results</h3>
+<div id="results"></div>
+
+<script>
+function runSimulation() {
+  const throws = 100;
+  const aPayout = parseInt(document.getElementById('aPayout').value);
+  const aChoice = document.getElementById('aChoice').value;
+  const aHandicap = parseInt(document.getElementById('aHandicap').value);
+
+  const bPayout = parseInt(document.getElementById('bPayout').value);
+  const bChoice = document.getElementById('bChoice').value;
+  const bHandicap = parseInt(document.getElementById('bHandicap').value);
+
+  let aTotal = 0, bTotal = 0, coinBias = 0;
+  let aCumulative = [], bCumulative = [], biasCumulative = [];
+  let resultsText = '';
+
+  for (let i = 0; i < throws; i++) {
+    const coin = Math.random() < 0.5 ? 'Heads' : 'Tails';
+
+    // Coin bias
+    coinBias += (coin === 'Tails') ? 1 : -1;
+    biasCumulative.push(coinBias);
+
+    // Player A
+    const aPlays = !(aHandicap && (i + 1) % aHandicap === 0);
+    if (aPlays && coin === aChoice) {
+      aTotal += (aPayout - 1);
+    } else if (aPlays) {
+      aTotal -= 1;
+    }
+    aCumulative.push(aTotal);
+
+    // Player B
+    const bPlays = !(bHandicap && (i + 1) % bHandicap === 0);
+    if (bPlays && coin === bChoice) {
+      bTotal += (bPayout - 1);
+    } else if (bPlays) {
+      bTotal -= 1;
+    }
+    bCumulative.push(bTotal);
+
+    resultsText += `Throw ${i + 1}: Coin = ${coin}, A = ${aPlays ? 'Play' : 'Skip'} (${aTotal}), B = ${bPlays ? 'Play' : 'Skip'} (${bTotal})\n`;
+  }
+
+  document.getElementById('results').textContent = resultsText + `\nFINAL: A = ${aTotal}, B = ${bTotal}`;
+
+  // Draw chart
+  const ctx = document.getElementById('chart').getContext('2d');
+  if (window.simChart) window.simChart.destroy();
+  window.simChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: Array.from({length: throws}, (_, i) => i + 1),
+      datasets: [
+        { label: 'Player A', data: aCumulative, borderColor: 'blue', fill: false },
+        { label: 'Player B', data: bCumulative, borderColor: 'green', fill: false },
+        { label: 'Coin Bias (Tails - Heads)', data: biasCumulative, borderColor: 'gray', fill: false, borderDash: [5, 5] }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { title: { display: true, text: 'Simulation Results' } },
+      scales: {
+        x: { title: { display: true, text: 'Throw #' } },
+        y: { title: { display: true, text: 'Cumulative Net Gain' } }
+      }
+    }
+  });
+}
+</script>
+
+</body>
+</html>
